@@ -1,0 +1,60 @@
+-- LocalScript: See Players Through Walls Mechanic
+local player = game.Players.LocalPlayer
+local highlightColor = Color3.fromRGB(255, 0, 0) -- Highlight color (red)
+local toggleKey = Enum.KeyCode.F -- Key to toggle the ability
+-- Removed highlightRadius and duration to make the distance and duration effectively infinite
+
+-- Store highlights for cleanup
+local activeHighlights = {}
+
+-- Function to add highlight effect to other players
+local function highlightPlayers()
+    -- Remove existing highlights before adding new ones
+    for _, highlight in pairs(activeHighlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    activeHighlights = {} -- Reset the active highlights list
+
+    -- Iterate through all players and add a highlight (no distance check, no duration limit)
+    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local character = otherPlayer.Character
+            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            
+            -- Add highlight for all players regardless of distance or time
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = character
+            highlight.FillColor = highlightColor
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- White outline
+            highlight.Parent = character
+
+            -- Store the highlight for later removal
+            table.insert(activeHighlights, highlight)
+        end
+    end
+end
+
+-- Function to toggle the ability on and off
+local abilityActive = false
+
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == toggleKey then -- Press "F" to toggle the ability
+        if not abilityActive then
+            abilityActive = true
+            highlightPlayers()
+        else
+            abilityActive = false
+            -- Remove all active highlights when deactivating
+            for _, highlight in pairs(activeHighlights) do
+                if highlight and highlight.Parent then
+                    highlight:Destroy()
+                end
+            end
+            activeHighlights = {} -- Reset active highlights
+        end
+    end
+end)
