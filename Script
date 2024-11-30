@@ -1,0 +1,225 @@
+-- Simple local script that should work with Solara V3 executor
+
+-- Setup for aimbot logic
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+local aiming = false
+local targetDistance = 100 -- Maximum range to lock on
+local smoothness = 0.1 -- Speed of camera movement towards target
+local target = nil
+
+-- ESP toggle variable
+local espEnabled = false
+
+-- Create a ScreenGui for the whole UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player.PlayerGui
+
+-- Create a fancy background for the GUI
+local bgFrame = Instance.new("Frame")
+bgFrame.Size = UDim2.new(0, 300, 0, 250)  -- Increased height for button spacing
+bgFrame.Position = UDim2.new(0.5, -150, 0.9, -120)  -- Adjust position
+bgFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+bgFrame.BorderSizePixel = 0
+bgFrame.BackgroundTransparency = 0.2
+bgFrame.Parent = screenGui
+
+-- Add some rounded corners to the background
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 15)
+corner.Parent = bgFrame
+
+-- Create a title label for the GUI
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.Text = "🐍Cobra Hub🐍"
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 24
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextStrokeTransparency = 0.8
+titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+titleLabel.TextScaled = true
+titleLabel.Parent = bgFrame
+
+-- Create a toggle button for aimbot
+local aimbotButton = Instance.new("TextButton")
+aimbotButton.Size = UDim2.new(0, 260, 0, 40)
+aimbotButton.Position = UDim2.new(0.5, -130, 0.3, 0)
+aimbotButton.Text = "Toggle Aimbot"
+aimbotButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+aimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+aimbotButton.Font = Enum.Font.GothamBold
+aimbotButton.TextSize = 20
+aimbotButton.Parent = bgFrame
+
+-- Create a toggle button for ESP
+local espButton = Instance.new("TextButton")
+espButton.Size = UDim2.new(0, 260, 0, 40)
+espButton.Position = UDim2.new(0.5, -130, 0.5, 20)  -- Adjusted position for better spacing
+espButton.Text = "Toggle ESP"
+espButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+espButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+espButton.Font = Enum.Font.GothamBold
+espButton.TextSize = 20
+espButton.Parent = bgFrame
+
+-- Variables to handle GUI dragging
+local dragging = false
+local dragInput, dragStart, startPos
+
+-- Function to handle dragging the GUI
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = bgFrame.Position
+    end
+end
+
+local function onInputChanged(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        bgFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end
+
+local function onInputEnded(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end
+
+-- Connect the dragging functions to user input
+bgFrame.InputBegan:Connect(onInputBegan)
+bgFrame.InputChanged:Connect(onInputChanged)
+bgFrame.InputEnded:Connect(onInputEnded)
+
+-- Toggle button functionality for aimbot
+aimbotButton.MouseButton1Click:Connect(function()
+    aiming = not aiming
+    if aiming then
+        aimbotButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50) -- Red when aiming
+        aimbotButton.Text = "Aimbot On"
+    else
+        aimbotButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0) -- Green when off
+        aimbotButton.Text = "Toggle Aimbot"
+    end
+end)
+
+-- Toggle button functionality for ESP
+espButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    if espEnabled then
+        espButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50) -- Red when active
+        espButton.Text = "ESP On"
+    else
+        espButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0) -- Green when off
+        espButton.Text = "Toggle ESP"
+    end
+end)
+
+-- Function to find the closest player
+local function findClosestPlayer()
+    local closestPlayer = nil
+    local closestDistance = targetDistance
+
+    for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+        if targetPlayer ~= player and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoidRootPart = targetPlayer.Character.HumanoidRootPart
+            local distance = (humanoidRootPart.Position - camera.CFrame.Position).Magnitude
+            if distance < closestDistance then
+                closestDistance = distance
+                closestPlayer = humanoidRootPart
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Function to aim at the target
+local function aimbotLogic()
+    if aiming then
+        target = findClosestPlayer()
+
+        if target then
+            -- Move camera to aim at target
+            local targetPosition = target.Position
+            local direction = (targetPosition - camera.CFrame.Position).unit
+            local targetCFrame = CFrame.lookAt(camera.CFrame.Position, targetPosition)
+            camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
+        end
+    end
+end
+
+-- Function to handle ESP (see players through walls)
+local function espLogic()
+    if espEnabled then
+        for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local humanoidRootPart = targetPlayer.Character.HumanoidRootPart
+
+                -- Add a highlight to the character for the ESP effect
+                if not targetPlayer.Character:FindFirstChild("ESP_Outline") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESP_Outline"
+                    highlight.Parent = targetPlayer.Character
+                    highlight.Adornee = targetPlayer.Character
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Red fill color (body color)
+                    highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Black outline color
+                    highlight.OutlineTransparency = 0.2 -- Thicker outline transparency
+                    highlight.FillTransparency = 0.5 -- Transparency of the fill
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Keeps the outline visible through walls
+                end
+            end
+        end
+    else
+        -- Remove the highlight (outline) when ESP is disabled
+        for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("ESP_Outline") then
+                local highlight = targetPlayer.Character:FindFirstChild("ESP_Outline")
+                if highlight then
+                    highlight:Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- Main loop to check and activate aimbot + ESP
+game:GetService("RunService").RenderStepped:Connect(function()
+    aimbotLogic()
+    espLogic()
+end)
+
+-- Listen for right-click to toggle aiming directly
+mouse.Button2Down:Connect(function()
+    aiming = true
+    aimbotButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50) -- Red when aiming
+    aimbotButton.Text = "Aimbot On"
+end)
+
+mouse.Button2Up:Connect(function()
+    aiming = false
+    aimbotButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0) -- Green when off
+    aimbotButton.Text = "Toggle Aimbot"
+end)
+
+-- Ensure GUI stays persistent and reattaches on death
+player.CharacterAdded:Connect(function()
+    -- Remove the previous ScreenGui before creating a new one
+    if screenGui.Parent then
+        screenGui:Destroy()
+    end
+
+    -- Recreate the GUI
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Parent = player.PlayerGui
+    bgFrame.Parent = screenGui
+    titleLabel.Parent = bgFrame
+    aimbotButton.Parent = bgFrame
+    espButton.Parent = bgFrame
+end)
